@@ -1,0 +1,203 @@
+name: complete
+services:
+  superexec-clientapp-1:
+    build:
+      context: test
+      dockerfile_inline: |
+        FROM flwr/superexec:1.22.0
+
+        # gcc is required for the fastai quickstart example
+        USER root
+        RUN apt-get update \
+            && apt-get -y --no-install-recommends install \
+            build-essential \
+            && rm -rf /var/lib/apt/lists/*
+        USER app
+
+        WORKDIR /app
+        COPY --chown=app:app pyproject.toml .
+        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
+          && python -m pip install -U --no-cache-dir .
+
+        ENTRYPOINT ["flower-superexec"]
+    command:
+      - --insecure
+      - --plugin-type
+      - clientapp
+      - --appio-api-address
+      - supernode-1:9094
+    depends_on:
+      supernode-1:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+    networks:
+      default: null
+    stop_signal: SIGINT
+    volumes:
+      - type: bind
+        source: ./client_1
+        target: /home
+        bind:
+          create_host_path: true
+
+  superexec-clientapp-2:
+    build:
+      context: test
+      dockerfile_inline: |
+        FROM flwr/superexec:1.22.0
+
+        # gcc is required for the fastai quickstart example
+        USER root
+        RUN apt-get update \
+            && apt-get -y --no-install-recommends install \
+            build-essential \
+            && rm -rf /var/lib/apt/lists/*
+        USER app
+
+        WORKDIR /app
+        COPY --chown=app:app pyproject.toml .
+        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
+          && python -m pip install -U --no-cache-dir .
+
+        ENTRYPOINT ["flower-superexec"]
+    command:
+      - --insecure
+      - --plugin-type
+      - clientapp
+      - --appio-api-address
+      - supernode-2:9095
+    depends_on:
+      supernode-2:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 4
+    networks:
+      default: null
+    stop_signal: SIGINT
+    volumes:
+      - type: bind
+        source: ./client_2
+        target: /home
+        bind:
+          create_host_path: true
+
+  superexec-serverapp:
+    build:
+      context: test
+      dockerfile_inline: |
+        FROM flwr/superexec:1.22.0
+
+        # gcc is required for the fastai quickstart example
+        USER root
+        RUN apt-get update \
+            && apt-get -y --no-install-recommends install \
+            build-essential \
+            && rm -rf /var/lib/apt/lists/*
+        USER app
+
+        WORKDIR /app
+        COPY --chown=app:app pyproject.toml .
+        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
+          && python -m pip install -U --no-cache-dir .
+
+        ENTRYPOINT ["flower-superexec"]
+    command:
+      - --insecure
+      - --plugin-type
+      - serverapp
+      - --appio-api-address
+      - superlink:9091
+    depends_on:
+      superlink:
+        condition: service_started
+        required: true
+    networks:
+      default: null
+    restart: on-failure:3
+    volumes:
+      - type: bind
+        source: ./server
+        target: /home
+        bind:
+          create_host_path: true
+
+  superlink:
+    command:
+      - --insecure
+      - --isolation
+      - process
+      - --database=state/state.db
+    image: flwr/superlink:1.22.0
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 9093
+        published: "9093"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: ./state/
+        target: /app/state
+        bind:
+          create_host_path: true
+
+  supernode-1:
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --clientappio-api-address
+      - 0.0.0.0:9094
+      - --isolation
+      - process
+      - --node-config
+      - partition-id=0 num-partitions=2 dataset-path='/home/fashionmnist_part_1.npz'
+    depends_on:
+      superlink:
+        condition: service_started
+        required: true
+    image: flwr/supernode:1.22.0
+    networks:
+      default: null
+    volumes:
+      - type: bind
+        source: ./client_1
+        target: /home
+        bind:
+          create_host_path: true
+
+  supernode-2:
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --clientappio-api-address
+      - 0.0.0.0:9095
+      - --isolation
+      - process
+      - --node-config
+      - partition-id=1 num-partitions=2 dataset-path='/home/fashionmnist_part_2.npz'
+    depends_on:
+      superlink:
+        condition: service_started
+        required: true
+    image: flwr/supernode:1.22.0
+    networks:
+      default: null
+    volumes:
+      - type: bind
+        source: ./client_2
+        target: /home
+        bind:
+          create_host_path: true
+networks:
+  default:
+    name: complete_default

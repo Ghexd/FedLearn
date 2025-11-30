@@ -1,0 +1,32 @@
+Run serverLink:
+ 
+    flower-superlink --insecure
+
+Run superNodes (repeate this command on each client): 
+
+    flower-supernode --insecure --superlink="SERVER_IP" \
+                    --node-config="dataset-path='PATH_TO_DATASET'"
+
+Run application (in same folder of pyproject.toml): 
+
+    flwr run . remote-federation
+
+To install all dependencies (use a venv):
+- pip install flwr torch torchvision scikit-learn
+
+External dependencies
+- sudo apt install nmon
+- sudo apt install linux-perf
+- sudo apt install sysstat
+- sudo apt install tshark
+
+Working versions of dependencies:
+- Python3.13 (tested Python13.2 too)
+- flwr=1.22.0
+- torch=2.8.0
+- torchvision=0.23.0
+- scikit-learn=1.7.2
+
+Run each client and server in the folder containing their ".sh" script
+Run processes with administrator privileges (needed by monitoring tool)
+

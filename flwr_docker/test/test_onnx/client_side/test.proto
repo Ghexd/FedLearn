@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+service Training {
+  rpc Train(TrainRequest) returns (TrainReply);
+
+  rpc Test(TestRequest) returns (TestReply);
+}
+
+message TrainRequest {
+  bytes model = 1;
+  int32 local_epochs = 2;
+  float learning_rate = 3;
+  int32 batch_size = 4;
+}
+
+message TestRequest {
+  bytes model = 1;
+  int32 batch_size = 2;
+}
+
+message TrainReply {
+  bytes model = 1;
+  float avg_trainloss = 2;
+  int32 dataset_len = 3;
+}
+
+message TestReply {
+  float eval_loss = 1;
+  float eval_acc = 2;
+  int32 dataset_len = 3;
+}
