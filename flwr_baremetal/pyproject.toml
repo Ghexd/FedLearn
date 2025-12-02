@@ -22,11 +22,7 @@ dependencies = [
 ]
 
 [tool.hatch.build]
-exclude = [
-    "datasets/*", # Exclude datasets from FAB (if generated in this directory)
-    "_static/*",  # Exclude images in README from FAB
-    "data/*",
-]
+exclude = ["datasets/*", "_static/*", "data/*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
@@ -59,5 +55,5 @@ options.num-supernodes = 10
 # Remote federation example for use with SuperLink
 [tool.flwr.federations.remote-federation]
 address = "127.0.0.1:9093"
-insecure = true               # Remove this line to enable TLS
+insecure = true            # Remove this line to enable TLS
 # root-certificates = "<PATH/TO/ca.crt>"  # For TLS setup

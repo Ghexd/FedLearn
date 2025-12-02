@@ -1,1 +1,1 @@
-Server uses the laptop scripts too.
+Server also uses the client scripts so copy them here

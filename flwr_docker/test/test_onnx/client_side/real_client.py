@@ -86,8 +86,7 @@ def train(model_bytes, local_epochs, learning_rate, batch_size):
 
 
 def evaluate(model_bytes, batch_size):
-    """Evaluate the model on local data (robust version with tempfile)."""
-
+    
     print("Start Evaluating")
 
     try:

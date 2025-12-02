@@ -24,15 +24,11 @@ dependencies = [
     "protobuf==6.33.0",
     "grpcio==1.76.0",
     "grpcio-tools==1.76.0",
-    "onnxscript==0.5.4"
+    "onnxscript==0.5.4",
 ]
 
 [tool.hatch.build]
-exclude = [
-    "datasets/*", # Exclude datasets from FAB (if generated in this directory)
-    "_static/*",  # Exclude images in README from FAB
-    "data/*",
-]
+exclude = ["datasets/*", "_static/*", "data/*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
