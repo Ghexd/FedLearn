@@ -1,3 +1,5 @@
 superlink-certificates
 state
 .env
+test/data
+test/datasets
