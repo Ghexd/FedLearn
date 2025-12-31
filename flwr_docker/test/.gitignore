@@ -6,6 +6,10 @@ __pycache__/
 # Flower directory
 .flwr
 
+# Dataset folder
+data
+datasets
+
 # C extensions
 *.so
 

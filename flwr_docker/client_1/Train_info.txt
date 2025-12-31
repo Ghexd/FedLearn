@@ -1,0 +1,16 @@
+Epoch 1: Time 7.2951s, Loss 1.5760
+Epoch 2: Time 6.6081s, Loss 0.7154
+Mean train time: 6.9516 seconds, Mean Loss: 0.7154
+
+Epoch 1: Time 4.2046s, Loss 1.5803
+Epoch 2: Time 4.5089s, Loss 0.7110
+Mean train time: 4.3568 seconds, Mean Loss: 0.7110
+
+Epoch 1: Time 5.5800s, Loss 0.5347
+Epoch 2: Time 4.6096s, Loss 0.4756
+Mean train time: 5.0948 seconds, Mean Loss: 0.4756
+
+Epoch 1: Time 4.0832s, Loss 0.5396
+Epoch 2: Time 4.6059s, Loss 0.4808
+Mean train time: 4.3446 seconds, Mean Loss: 0.4808
+

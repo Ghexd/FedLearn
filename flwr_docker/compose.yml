@@ -8,7 +8,6 @@ services:
       - process
     ports:
       - 9093:9093
-      # Add any ports from superexec-serverapp that need to be exposed
     networks:
       - flower-net
 
@@ -17,30 +16,9 @@ services:
     privileged: true
     build:
       context: ${PROJECT_DIR:-.}
-      dockerfile_inline: |
-        FROM flwr/superexec:${FLWR_VERSION:-1.22.0}
-
-        # gcc is required for the fastai quickstart example
-        USER root
-        # Set frontend to noninteractive to avoid prompts during tshark installation
-        ENV DEBIAN_FRONTEND=noninteractive
-        RUN apt-get update \
-            && apt-get -y --no-install-recommends install \
-            build-essential \
-            tshark \
-            linux-tools-common \
-            linux-tools-generic \
-            sysstat \
-            nmon \
-            && rm -rf /var/lib/apt/lists/*
-        # USER app
-
-        WORKDIR /app
-        COPY --chown=app:app pyproject.toml .
-        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
-          && python -m pip install -U --no-cache-dir .
-
-        ENTRYPOINT ["flower-superexec"]
+      dockerfile: Dockerfile.server
+      args:
+        FLWR_VERSION: ${FLWR_VERSION:-1.22.0}
     command:
       - --insecure
       - --plugin-type
@@ -52,10 +30,9 @@ services:
     depends_on:
       - superlink
     volumes:
-      #remember to give the right writing and reading permission to ./server
       - ./server:/home
 
-  # create two SuperNode services with different node configs
+  # create SuperNode services with different node configs
   supernode-1:
     image: flwr/supernode:${FLWR_VERSION:-1.22.0}
     command:
@@ -67,11 +44,10 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=0 num-partitions=2 dataset-path='/home/fashionmnist_part_1.npz'"
+      - "partition-id=0 num-partitions=4 dataset-path='/home/fashionmnist_part_1.npz'"
     depends_on:
       - superlink
     volumes:
-      #remember to give the right writing and reading permission to ./client_1
       - ./client_1:/home
     networks:
       - flower-net
@@ -87,12 +63,49 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=1 num-partitions=2 dataset-path='/home/fashionmnist_part_2.npz'"
+      - "partition-id=1 num-partitions=4 dataset-path='/home/fashionmnist_part_2.npz'"
     depends_on:
       - superlink
     volumes:
-      #remember to give the right writing and reading permission to ./client_2
       - ./client_2:/home
+    networks:
+      - flower-net
+
+  supernode-3:
+    image: flwr/supernode:${FLWR_VERSION:-1.22.0}
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --clientappio-api-address
+      - 0.0.0.0:9096
+      - --isolation
+      - process
+      - --node-config
+      - "partition-id=2 num-partitions=4 dataset-path='/home/fashionmnist_part_3.npz'"
+    depends_on:
+      - superlink
+    volumes:
+      - ./client_3:/home
+    networks:
+      - flower-net
+
+  supernode-4:
+    image: flwr/supernode:${FLWR_VERSION:-1.22.0}
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --clientappio-api-address
+      - 0.0.0.0:9097
+      - --isolation
+      - process
+      - --node-config
+      - "partition-id=3 num-partitions=4 dataset-path='/home/fashionmnist_part_4.npz'"
+    depends_on:
+      - superlink
+    volumes:
+      - ./client_4:/home
     networks:
       - flower-net
 
@@ -101,28 +114,9 @@ services:
     privileged: true
     build:
       context: ${PROJECT_DIR:-.}
-      dockerfile_inline: |
-        FROM flwr/superexec:${FLWR_VERSION:-1.22.0}
-
-        # gcc is required for the fastai quickstart example
-        USER root
-        ENV DEBIAN_FRONTEND=noninteractive
-        RUN apt-get update \
-            && apt-get -y --no-install-recommends install \
-            build-essential \
-            linux-tools-common \
-            linux-tools-generic \
-            sysstat \
-            nmon \
-            && rm -rf /var/lib/apt/lists/*
-        # USER app
-
-        WORKDIR /app
-        COPY --chown=app:app pyproject.toml .
-        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
-          && python -m pip install -U --no-cache-dir .
-
-        ENTRYPOINT ["flower-superexec"]
+      dockerfile: Dockerfile.client
+      args:
+        FLWR_VERSION: ${FLWR_VERSION:-1.22.0}
     command:
       - --insecure
       - --plugin-type
@@ -132,12 +126,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "2"
     stop_signal: SIGINT
     depends_on:
       - supernode-1
     volumes:
-      #remember to give the right writing and reading permission to ./client_1
       - ./client_1:/home
     networks:
       - flower-net
@@ -146,28 +139,9 @@ services:
     privileged: true
     build:
       context: ${PROJECT_DIR:-.}
-      dockerfile_inline: |
-        FROM flwr/superexec:${FLWR_VERSION:-1.22.0}
-
-        # gcc is required for the fastai quickstart example
-        USER root
-        ENV DEBIAN_FRONTEND=noninteractive
-        RUN apt-get update \
-            && apt-get -y --no-install-recommends install \
-            build-essential \
-            linux-tools-common \
-            linux-tools-generic \
-            sysstat \
-            nmon \
-            && rm -rf /var/lib/apt/lists/*
-        # USER app
-
-        WORKDIR /app
-        COPY --chown=app:app pyproject.toml .
-        RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
-          && python -m pip install -U --no-cache-dir .
-
-        ENTRYPOINT ["flower-superexec"]
+      dockerfile: Dockerfile.client
+      args:
+        FLWR_VERSION: ${FLWR_VERSION:-1.22.0}
     command:
       - --insecure
       - --plugin-type
@@ -177,13 +151,62 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "2"
     stop_signal: SIGINT
     depends_on:
       - supernode-2
     volumes:
-      #remember to give the right writing and reading permission to ./client_2
       - ./client_2:/home
+    networks:
+      - flower-net
+
+  superexec-clientapp-3:
+    privileged: true
+    build:
+      context: ${PROJECT_DIR:-.}
+      dockerfile: Dockerfile.client
+      args:
+        FLWR_VERSION: ${FLWR_VERSION:-1.22.0}
+    command:
+      - --insecure
+      - --plugin-type
+      - clientapp
+      - --appio-api-address
+      - supernode-3:9096
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    depends_on:
+      - supernode-3
+    volumes:
+      - ./client_3:/home
+    networks:
+      - flower-net
+
+  superexec-clientapp-4:
+    privileged: true
+    build:
+      context: ${PROJECT_DIR:-.}
+      dockerfile: Dockerfile.client
+      args:
+        FLWR_VERSION: ${FLWR_VERSION:-1.22.0}
+    command:
+      - --insecure
+      - --plugin-type
+      - clientapp
+      - --appio-api-address
+      - supernode-4:9097
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    depends_on:
+      - supernode-4
+    volumes:
+      - ./client_4:/home
     networks:
       - flower-net
 

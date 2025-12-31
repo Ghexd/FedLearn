@@ -1,0 +1,33 @@
+# Dockerfile.server
+ARG FLWR_VERSION=1.22.0
+FROM flwr/superexec:${FLWR_VERSION}
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update \
+    && apt-get -y --no-install-recommends install \
+    build-essential \
+    tshark \
+    linux-tools-common \
+    linux-tools-generic \
+    sysstat \
+    nmon \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install PyTorch CPU (lighter)
+# --index-url point to CPU only wheel
+RUN python -m pip install -U --no-cache-dir \
+    "torch==2.8.0" \
+    "torchvision==0.23.0" \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install the rest of the project
+COPY --chown=app:app pyproject.toml .
+RUN sed -i 's/.*flwr\[simulation\].*//' pyproject.toml \
+    && python -m pip install -U --no-cache-dir .
+
+ENTRYPOINT ["flower-superexec"]

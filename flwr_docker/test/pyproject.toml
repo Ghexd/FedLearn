@@ -12,12 +12,11 @@ name = "test"
 version = "1.0.0"
 description = ""
 license = "Apache-2.0"
-# Dependencies for your Flower App
 dependencies = [
     "flwr[simulation]>=1.22.0",
     "flwr-datasets[vision]>=0.5.0",
-    "torch==2.8.0",
-    "torchvision==0.23.0",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
     "scikit-learn==1.7.2",
     "onnx==1.19.1",
     "onnx2torch==1.5.15",
@@ -41,14 +40,16 @@ publisher = "pi"
 [tool.flwr.app.components]
 # serverapp = "test_onnx.server_side.server_app:app"
 # clientapp = "test_onnx.server_side.client_app:app"
-serverapp = "test.server_app:app"
-clientapp = "test.client_app:app"
+# serverapp = "test.server_app:app"
+# clientapp = "test.client_app:app"
+serverapp = "test_client_balancing.server_app:app"
+clientapp = "test_client_balancing.client_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
 num-server-rounds = 2
-fraction-evaluate = 0.5
-local-epochs = 1
+fraction-evaluate = 1.0
+local-epochs = 2
 learning-rate = 0.01
 batch-size = 64
 
