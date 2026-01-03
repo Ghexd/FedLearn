@@ -32,12 +32,12 @@ def save_dataset_to_disk(num_partitions=None, ratios=None):
     if not os.path.exists(DATASET_DIRECTORY):
         os.makedirs(DATASET_DIRECTORY)
 
-    # Load training set (60,000 images)
+    # Load training set (60 000 images)
     train_set = datasets.FashionMNIST(root="data", train=True, download=True)
     train_data = train_set.data.numpy().reshape(-1, 1, 28, 28)
     train_labels = train_set.targets.numpy()
 
-    # Load test set (10,000 images)
+    # Load test set (10 000 images)
     test_set = datasets.FashionMNIST(root="data", train=False, download=True)
     test_data = test_set.data.numpy().reshape(-1, 1, 28, 28)
     test_labels = test_set.targets.numpy()

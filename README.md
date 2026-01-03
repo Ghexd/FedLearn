@@ -23,6 +23,10 @@ The idea is to employ a custom aggregation strategy that enables the server to i
 
 ![Sequence diagram for client balancing](assets/Sequence.png "Sequence diagram for client balancing")
 
+Within the `server` directory of the containerized demo, two scripts are provided to perform **Member Inference Attacks (MIA)**, implementing two distinct methodologies:
+
+- **Loss-Based Analysis**: A computationally efficient approach that analyzes the loss function to identify overfitting, which serves as an indicator that specific data points were used during training [1].
+- **Shadow Model Approach**: A more sophisticated technique that utilizes a "shadow model" to identify complex patterns within the target model. This allows for a more precise determination of whether specific samples were part of the training set [2].
 
 ## How to Run the Demo
 
@@ -39,7 +43,7 @@ For detailed instructions, refer to the `instructions.txt` file in the **baremet
 3. Copy the performance script to each client. Open a terminal in the same directory and run the Flower **SuperNode** command *(repeat for each client you want to include)*.
 
 4. Navigate to the folder containing the `pyproject.toml` file and execute Flower **run** command.
-s
+   
 ### Docker Version
 
 1. Generate dataset partitions and copy them to the corresponding clients folder.
@@ -66,7 +70,6 @@ clientapp = "test_onnx.server_side.client_app:app"
 
 5. Run `compose_with_privileges.sh`.
 
-
 ### Clients Balancing Version
 
 1. Change project.toml as follow:
@@ -78,3 +81,15 @@ clientapp = "test_client_balancing.client_app:app"
 ```
 
 2. Follow the same steps as [Docker Version](#docker-version)
+
+### Member Inference Attack
+
+1. Generate the MIA dataset using the provided script and copy it to the server folder.
+
+2. Go to the server folder and choose which of the two variants to run (remember to execute the demo to create and save a model to attack)
+
+#### References
+
+[1] S. Yeom, I. Giacomelli, M. Fredrikson, and S. Jha. **"Privacy Risk in Machine Learning: Analyzing the Connection to Overfitting."** *arXiv preprint arXiv:1709.01604*, 2018. [Available at: https://arxiv.org/abs/1709.01604](https://arxiv.org/abs/1709.01604)
+
+[2] R. Shokri, M. Stronati, C. Song, and V. Shmatikov. **"Membership Inference Attacks against Machine Learning Models."** *arXiv preprint arXiv:1610.05820*, 2017. [Available at: https://arxiv.org/abs/1610.05820](https://arxiv.org/abs/1610.05820)

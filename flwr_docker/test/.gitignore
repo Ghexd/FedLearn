@@ -7,8 +7,9 @@ __pycache__/
 .flwr
 
 # Dataset folder
-data
-datasets
+data/
+datasets/
+server_data.npz
 
 # C extensions
 *.so

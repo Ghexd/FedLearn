@@ -28,6 +28,9 @@ class RichPoorStrategy(FedAvg):
         
         self.rich_models_cache: Dict[str, ArrayRecord] = {}
 
+        # Store the final aggregated weights from the last round
+        self.final_arrays: Optional[ArrayRecord] = None
+
     def configure_train(
         self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
     ) -> Iterable[Message]:
@@ -217,7 +220,13 @@ class RichPoorStrategy(FedAvg):
         # Round 3: standard aggregation
         else:
             print("Aggregating Standard Round: Updating Global Model.")
-            return super().aggregate_train(server_round, results)
+            
+            aggregated_arrays, metrics = super().aggregate_train(server_round, results)
+            
+            if aggregated_arrays is not None:
+                self.final_arrays = aggregated_arrays
+                
+            return aggregated_arrays, metrics
 
     def configure_evaluate(
         self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
@@ -266,6 +275,23 @@ def main(grid: Grid, context: Context) -> None:
         initial_arrays=arrays,
         num_rounds=num_rounds,
     )
+
+    # Update global_model with the weights trained by the strategy
+    if strategy.final_arrays is not None:
+        print("\nUpdating global_model with trained weights...")
+        try:
+            # Convert ArrayRecord back to PyTorch Tensors
+            state_dict = {}
+            for k, v in strategy.final_arrays.items():
+                
+                state_dict[k] = torch.from_numpy(v.numpy())
+            
+            global_model.load_state_dict(state_dict)
+            print("Model weights updated successfully.")
+        except Exception as e:
+            print(f"Error updating global_model weights: {e}")
+    else:
+        print("\n[WARNING] No trained weights found in strategy. Saving initial/random model.")
 
     print("\nSaving final model to disk...")
     try:
