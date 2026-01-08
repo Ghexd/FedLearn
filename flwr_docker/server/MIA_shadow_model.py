@@ -3,25 +3,29 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset, TensorDataset
-from torchvision.transforms import Compose, Normalize
+from torch.utils.data import DataLoader, Dataset, TensorDataset, Subset
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import train_test_split
 import os
 
-DATASET_PATH = "./server_data.npz"
+DATASET_PATH = "./server_data.npz" 
 TARGET_MODEL_PATH = "./final_model.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 64
 
-SHADOW_EPOCHS = 20    # Epochs to train the Shadow Model
-ATTACK_EPOCHS = 30    # Epochs to train the Binary Attack Model
+BATCH_SIZE = 64  
+NUM_CLASSES = 10 
+
+NUM_SHADOW_MODELS = 5
+SHADOW_EPOCHS = 20
+ATTACK_EPOCHS = 40
 LR = 0.001
+
+# NOTE: The attacker has access to a dataset drawn from the same distribution 
+# as the target model's training data (Shadow Data).
 
 class Net(nn.Module):
     """
-    Standard CNN architecture. 
-    Used for both the Target Model (pre-trained) and the Shadow Model (trained from scratch).
+    CNN Architecture used for Target and Shadow Models.
     """
     def __init__(self):
         super(Net, self).__init__()
@@ -42,9 +46,9 @@ class Net(nn.Module):
 
 class AttackNet(nn.Module):
     """
-    The Attack Model (as described in Shokri et al.).
-    Input: Confidence vector (probability distribution) of size 10.
-    Output: Single probability score (Member vs Non-Member).
+    Per-Class Attack Model.
+    Input: Logits or Probabilities from Target/Shadow Model.
+    Output: Logits for Membership (Binary Classification).
     """
     def __init__(self, input_dim=10):
         super(AttackNet, self).__init__()
@@ -55,12 +59,10 @@ class AttackNet(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = torch.sigmoid(self.fc3(x)) # Output [0, 1]
-        return x
+        return self.fc3(x)
 
 class CustomDataset(Dataset):
     def __init__(self, images, labels):
-        # Normalize images to [-1, 1] range
         self.images = torch.from_numpy(images).float() / 255.0
         self.images = (self.images - 0.5) / 0.5 
         self.labels = torch.from_numpy(labels).long()
@@ -71,165 +73,244 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         return {"image": self.images[idx], "label": self.labels[idx]}
 
-# Utils
-def get_probabilities(model, loader, device):
+
+def get_data_for_attack(model, loader, device):
     """
-    Runs the model and returns the softmax probability vectors.
+    Runs inference to collect inputs for the attack model.
+    Returns:
+        - probs: The probability vectors (softmax output)
+        - predicted_labels: The class predicted by the model (argmax)
     """
     model.eval()
-    prob_list = []
+    probs_list = []
+    
     with torch.no_grad():
         for batch in loader:
             imgs = batch["image"].to(device)
+            
             out = model(imgs)
-            probs = F.softmax(out, dim=1)
-            prob_list.append(probs)
-    return torch.cat(prob_list)
+            probs = F.softmax(out, dim=1) 
+            probs_list.append(probs)
+            
+    probs_tensor = torch.cat(probs_list)
+    predicted_labels = torch.argmax(probs_tensor, dim=1)
+    
+    return probs_tensor, predicted_labels
 
-def prepare_attack_data():
+def prepare_main_splits():
     """
-    Loads and splits samples
+    Splits the 10k dataset into two worlds:
+    1. Shadow World (5000 samples): Used to train shadow models and attack models.
+    2. Target World (5000 samples): Used to evaluate the attack on the real target.
     """
-    print(f"Loading data from {DATASET_PATH}...")
     if not os.path.exists(DATASET_PATH):
-        raise FileNotFoundError("Dataset not found.")
+        raise FileNotFoundError(f"Dataset not found at {DATASET_PATH}")
 
+    print(f"Loading Dataset {DATASET_PATH}...")
     with np.load(DATASET_PATH) as data:
-        target_members_imgs = data["train_images"]  
-        target_members_lbls = data["train_labels"]
-        target_nonmembers_imgs = data["test_images"] 
-        target_nonmembers_lbls = data["test_labels"]
+        # Assuming structure: 5000 train (members), 5000 test (non-members)
+        tm_imgs = data["train_images"] 
+        tm_lbls = data["train_labels"]
+        tnm_imgs = data["test_images"] 
+        tnm_lbls = data["test_labels"]
 
-    # Split the data so the Shadow Model is trained on a disjoint set from the Target Model evaluation.
+    all_imgs = np.concatenate([tm_imgs, tnm_imgs])
+    all_lbls = np.concatenate([tm_lbls, tnm_lbls])
     
-    # Split True Members
-    tm_imgs_shadow, tm_imgs_eval, tm_lbls_shadow, tm_lbls_eval = train_test_split(
-        target_members_imgs, target_members_lbls, test_size=0.5, random_state=42
+    # Split 50% Shadow / 50% Target Eval
+    shadow_imgs, target_imgs, shadow_lbls, target_lbls = train_test_split(
+        all_imgs, all_lbls, test_size=0.5, random_state=42
     )
-
-    # Split True Non-Members
-    tnm_imgs_shadow, tnm_imgs_eval, tnm_lbls_shadow, tnm_lbls_eval = train_test_split(
-        target_nonmembers_imgs, target_nonmembers_lbls, test_size=0.5, random_state=42
-    )
-
-    shadow_train_ds = CustomDataset(tm_imgs_shadow, tm_lbls_shadow) # Shadow Members
-    shadow_out_ds = CustomDataset(tnm_imgs_shadow, tnm_lbls_shadow) # Shadow Non-Members
     
-    target_member_ds = CustomDataset(tm_imgs_eval, tm_lbls_eval)      # Real Target Members
-    target_nonmember_ds = CustomDataset(tnm_imgs_eval, tnm_lbls_eval) # Real Target Non-Members
+    shadow_ds = CustomDataset(shadow_imgs, shadow_lbls)
+    target_ds = CustomDataset(target_imgs, target_lbls)
+    
+    print(f"Data Splitting Complete:")
+    print(f" -> Shadow World Pool: {len(shadow_ds)} samples")
+    print(f" -> Target World Pool: {len(target_ds)} samples")
+    
+    return shadow_ds, target_ds
 
-    print(f"Data Splits Created:")
-    print(f" -> Shadow Train (Members): {len(shadow_train_ds)}")
-    print(f" -> Shadow Test (Non-Members): {len(shadow_out_ds)}")
-    print(f" -> Target Evaluation (Members): {len(target_member_ds)}")
-    print(f" -> Target Evaluation (Non-Members): {len(target_nonmember_ds)}")
-
-    return shadow_train_ds, shadow_out_ds, target_member_ds, target_nonmember_ds
+def create_shadow_dataset(full_shadow_ds):
+    """
+    From the Shadow World Pool creates a random split for a single shadow model:
+    - 50% Train (Shadow Members)
+    - 50% Test (Shadow Non-Members)
+    """
+    total_len = len(full_shadow_ds)
+    indices = np.arange(total_len)
+    np.random.shuffle(indices)
+    
+    split_point = total_len // 2
+    train_indices = indices[:split_point] # Members
+    test_indices = indices[split_point:]  # Non-Members
+    
+    train_ds = Subset(full_shadow_ds, train_indices)
+    test_ds = Subset(full_shadow_ds, test_indices)
+    
+    return train_ds, test_ds
 
 
 def main():
-    print("--- SHADOW MODELING MEMBERSHIP INFERENCE ATTACK ---")
+    print("===============================")
+    print(" MIA Based on Shadow Models ")
+    print("===============================")
     
-    s_train_ds, s_out_ds, t_mem_ds, t_nonmem_ds = prepare_attack_data()
+    # Split data: shadow and target "world"
+    shadow_pool_ds, target_pool_ds = prepare_main_splits()
     
-    s_train_loader = DataLoader(s_train_ds, batch_size=BATCH_SIZE, shuffle=True)
-    s_out_loader = DataLoader(s_out_ds, batch_size=BATCH_SIZE, shuffle=False)
+    attack_X = [] 
+    attack_Y_class = []
+    attack_Y_membership = []
 
-    # Train shadow model
-    print("\n[Phase 1] Training Shadow Model...")
-    shadow_model = Net().to(DEVICE)
-    optimizer = optim.Adam(shadow_model.parameters(), lr=LR)
-    criterion = nn.CrossEntropyLoss()
-
-    shadow_model.train()
-    for epoch in range(SHADOW_EPOCHS):
-        total_loss = 0
-        for batch in s_train_loader:
-            imgs, lbls = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
-            optimizer.zero_grad()
-            outputs = shadow_model(imgs)
-            loss = criterion(outputs, lbls)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-
-    # Generate attack training data
-    print("\n[Phase 2] Generating Vectors for Attack Model training...")
+    print(f"\n[Phase 1] Training {NUM_SHADOW_MODELS} Shadow Models...")
     
-    in_vectors = get_probabilities(shadow_model, s_train_loader, DEVICE)
-    out_vectors = get_probabilities(shadow_model, s_out_loader, DEVICE)
+    # Training multiple shadow models
+    for i in range(NUM_SHADOW_MODELS):
+        print(f" -> Training Shadow Model {i+1}/{NUM_SHADOW_MODELS}...")
 
-    # Create labels: 1 for Members, 0 for Non-Members
-    in_labels = torch.ones(len(in_vectors), 1).to(DEVICE)
-    out_labels = torch.zeros(len(out_vectors), 1).to(DEVICE)
+        s_train_ds, s_out_ds = create_shadow_dataset(shadow_pool_ds)
+        
+        s_train_loader = DataLoader(s_train_ds, batch_size=BATCH_SIZE, shuffle=True)
+        s_out_loader = DataLoader(s_out_ds, batch_size=BATCH_SIZE, shuffle=False)
+        
+        shadow_model = Net().to(DEVICE)
+        optimizer = optim.Adam(shadow_model.parameters(), lr=LR)
+        criterion = nn.CrossEntropyLoss()
+        
+        shadow_model.train()
+        for epoch in range(SHADOW_EPOCHS):
+            for batch in s_train_loader:
+                imgs, lbls = batch["image"].to(DEVICE), batch["label"].to(DEVICE)
+                optimizer.zero_grad()
+                outputs = shadow_model(imgs)
+                loss = criterion(outputs, lbls)
+                loss.backward()
+                optimizer.step()
+        
+        # Query Shadow Model to get Attack Data
+        # IN (Members) = Label 1
+        vecs_in, preds_in = get_data_for_attack(shadow_model, s_train_loader, DEVICE)
+        labels_in = torch.ones(len(vecs_in)).to(DEVICE)
+        
+        # OUT (Non-Members) = Label 0
+        vecs_out, preds_out = get_data_for_attack(shadow_model, s_out_loader, DEVICE)
+        labels_out = torch.zeros(len(vecs_out)).to(DEVICE)
+        
+        # Aggregate
+        attack_X.append(torch.cat([vecs_in, vecs_out]))
+        attack_Y_class.append(torch.cat([preds_in, preds_out]))
+        attack_Y_membership.append(torch.cat([labels_in, labels_out]))
 
-    attack_inputs = torch.cat([in_vectors, out_vectors])
-    attack_targets = torch.cat([in_labels, out_labels])
+    # Flatten aggregated data from all shadow models
+    attack_X = torch.cat(attack_X)              # Input vectors
+    attack_Y_class = torch.cat(attack_Y_class)  # Predicted Class (Routing)
+    attack_Y_membership = torch.cat(attack_Y_membership).unsqueeze(1) # Target (1=Member, 0=NonMember)
 
-    attack_ds = TensorDataset(attack_inputs, attack_targets)
-    attack_loader = DataLoader(attack_ds, batch_size=BATCH_SIZE, shuffle=True)
+    print(f"\n[Phase 2] Attack Dataset Generated.")
+    print(f" -> Total Attack Samples: {len(attack_X)} (Aggregated from {NUM_SHADOW_MODELS} models)")
 
-    # Train attack model
-    print("\n[Phase 3] Training Attack Model (Binary Classifier)...")
-    attack_model = AttackNet().to(DEVICE)
-    att_optim = optim.Adam(attack_model.parameters(), lr=LR)
-    att_criterion = nn.BCELoss()
+    # Train Attack Model
+    print("\n[Phase 3] Training Per-Class Attack Models...")
+    
+    attack_models = {} 
 
-    attack_model.train()
-    for epoch in range(ATTACK_EPOCHS):
-        for vec, lbl in attack_loader:
-            vec, lbl = vec.to(DEVICE), lbl.to(DEVICE)
-            att_optim.zero_grad()
-            pred = attack_model(vec)
-            loss = att_criterion(pred, lbl)
-            loss.backward()
-            att_optim.step()
+    for class_id in range(NUM_CLASSES):
+        
+        indices = (attack_Y_class == class_id).nonzero(as_tuple=True)[0]
+        
+        # Handle class imbalance or empty classes
+        if len(indices) < 50:
+            print(f"  Warning: Class {class_id} has only {len(indices)} samples. Skipping/Unstable.")
+            continue
+        
+        class_vecs = attack_X[indices]
+        class_labels = attack_Y_membership[indices]
+        
+        class_ds = TensorDataset(class_vecs, class_labels)
+        class_loader = DataLoader(class_ds, batch_size=32, shuffle=True)
+        
+        net = AttackNet().to(DEVICE)
+        opt = optim.Adam(net.parameters(), lr=LR)
+        
+        crit = nn.BCEWithLogitsLoss()
+        
+        net.train()
+        for epoch in range(ATTACK_EPOCHS):
+            for v, l in class_loader:
+                opt.zero_grad()
+                logits = net(v)
+                loss = crit(logits, l)
+                loss.backward()
+                opt.step()
+        
+        attack_models[class_id] = net
 
-    # Attack real target model
-    print("\n[Phase 4] Attacking the Target Model...")
+    print("  All attack models trained.")
+
+    # Attacking target model
+    print("\n[Phase 4] Attacking the Real Target Model...")
     
     target_model = Net().to(DEVICE)
-    try:
-        target_model.load_state_dict(torch.load(TARGET_MODEL_PATH, map_location=DEVICE))
-    except FileNotFoundError:
-        print(f"Error: {TARGET_MODEL_PATH} not found.")
+    if not os.path.exists(TARGET_MODEL_PATH):
+        print("Target model file not found.")
         return
-
+    target_model.load_state_dict(torch.load(TARGET_MODEL_PATH, map_location=DEVICE))
+    target_model.eval()
+    
+    # Split the Target World pool into Members (Train) and Non-Members (Test)
+    t_indices = np.arange(len(target_pool_ds))
+    t_split = len(target_pool_ds) // 2
+    
+    # First half = Members, Second half = Non-Members
+    t_mem_ds = Subset(target_pool_ds, t_indices[:t_split])
+    t_nonmem_ds = Subset(target_pool_ds, t_indices[t_split:])
+    
     t_mem_loader = DataLoader(t_mem_ds, batch_size=BATCH_SIZE, shuffle=False)
     t_nonmem_loader = DataLoader(t_nonmem_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-    # Get prediction vectors
-    target_in_vectors = get_probabilities(target_model, t_mem_loader, DEVICE)
-    target_out_vectors = get_probabilities(target_model, t_nonmem_loader, DEVICE)
+    t_vec_in, t_pred_in = get_data_for_attack(target_model, t_mem_loader, DEVICE)
+    t_vec_out, t_pred_out = get_data_for_attack(target_model, t_nonmem_loader, DEVICE)
 
-    final_inputs = torch.cat([target_in_vectors, target_out_vectors])
+    final_vecs = torch.cat([t_vec_in, t_vec_out])
+    final_preds_cls = torch.cat([t_pred_in, t_pred_out]) # This determines routing
+    final_true_mem = torch.cat([torch.ones(len(t_vec_in)), torch.zeros(len(t_vec_out))]).cpu().numpy()
     
-    # Ground Truth: 1 for Members, 0 for Non-Members
-    y_true = np.concatenate([np.ones(len(target_in_vectors)), np.zeros(len(target_out_vectors))])
+    attack_scores = []
 
-    # Run Attack Model
-    attack_model.eval()
     with torch.no_grad():
-        y_scores = attack_model(final_inputs).cpu().numpy().flatten()
+        for i in range(len(final_vecs)):
+            vec = final_vecs[i].unsqueeze(0)
+            cls = final_preds_cls[i].item()
+            
+            if cls in attack_models:
+                model = attack_models[cls]
+                model.eval()
+                logits = model(vec)
+                prob = torch.sigmoid(logits).item() 
+            else:
+                prob = 0.5
+                
+            attack_scores.append(prob)
 
-    # Metrics (ROC-AUC & Advantage)
-    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    attack_scores = np.array(attack_scores)
+
+    # Metrics
+    fpr, tpr, _ = roc_curve(final_true_mem, attack_scores)
     roc_auc = auc(fpr, tpr)
-
-    # Advantage = max(|TPR - FPR|)
     advantage = np.max(np.abs(tpr - fpr))
 
-    print("-------------------------------------------------------")
-    print(f"FINAL MIA RESULTS")
-    print("-------------------------------------------------------")
+    print("\n=====================")
+    print(f"   Final Results  ")
+    print("=======================")
     print(f"ROC-AUC Score:        {roc_auc:.4f}")
     print(f"Membership Advantage: {advantage:.4f}")
-    print("-------------------------------------------------------")
+    print("-----------------------------------------")
     
     if advantage > 0.1:
-        print("Interpretation: The model leaks information (Advantage > 0.1).")
+        print(">> RISK DETECTED: Model leaks membership info.")
     else:
-        print("Interpretation: The model seems robust or the attack failed (Advantage <= 0.1).")
+        print(">> LOW RISK: Attack close to random guessing.")
 
 if __name__ == "__main__":
     main()
