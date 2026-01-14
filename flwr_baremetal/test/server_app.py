@@ -7,7 +7,7 @@ from flwr.app import ArrayRecord, ConfigRecord, Context, Message
 from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
 
-from test.task import Net
+from test.task_mnist import Net
 import socket
 
 # Create a custom strategy to send instructions to clients

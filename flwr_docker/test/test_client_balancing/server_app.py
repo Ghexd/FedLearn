@@ -7,7 +7,7 @@ from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
 import socket
 
-from test_client_balancing.task import Net
+from test_client_balancing.task_apnea import Net
 
 
 class RichPoorStrategy(FedAvg):

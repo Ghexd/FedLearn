@@ -3,9 +3,9 @@
 import torch
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
-from test.task import Net, load_data_from_disk
-from test.task import test as test_fn
-from test.task import train as train_fn
+from test.task_apnea import Net, load_data_from_disk
+from test.task_apnea import test as test_fn
+from test.task_apnea import train as train_fn
 import subprocess
 import os
 
@@ -26,8 +26,8 @@ def train(msg: Message, context: Context):
         monitor = subprocess.run(['/home/start_monitor.sh'])
         print(f"perf and pidstat script started (exit code: {monitor.returncode})")
         try:
-            train_file_path = os.path.join(absolute_path, "Train_time.txt")
-            test_file_path = os.path.join(absolute_path, "Test_time.txt")
+            train_file_path = os.path.join(absolute_path, "Train_info.txt")
+            test_file_path = os.path.join(absolute_path, "Test_info.txt")
 
             with open(train_file_path, "w") as file:
                 file.write("")

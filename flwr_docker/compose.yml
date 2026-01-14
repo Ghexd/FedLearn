@@ -44,7 +44,7 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=0 num-partitions=4 dataset-path='/home/fashionmnist_part_1.npz'"
+      - "partition-id=0 num-partitions=4 dataset-path='/home/partition_0.npz'"
     depends_on:
       - superlink
     volumes:
@@ -63,7 +63,7 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=1 num-partitions=4 dataset-path='/home/fashionmnist_part_2.npz'"
+      - "partition-id=1 num-partitions=4 dataset-path='/home/partition_1.npz'"
     depends_on:
       - superlink
     volumes:
@@ -82,7 +82,7 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=2 num-partitions=4 dataset-path='/home/fashionmnist_part_3.npz'"
+      - "partition-id=2 num-partitions=4 dataset-path='/home/partition_2.npz'"
     depends_on:
       - superlink
     volumes:
@@ -101,7 +101,7 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=3 num-partitions=4 dataset-path='/home/fashionmnist_part_4.npz'"
+      - "partition-id=3 num-partitions=4 dataset-path='/home/partition_3.npz'"
     depends_on:
       - superlink
     volumes:

@@ -8,8 +8,8 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import train_test_split
 import os
 
-DATASET_PATH = "./server_data.npz" 
-TARGET_MODEL_PATH = "./final_model.pt"
+DATASET_PATH = "../client_2/fashionmnist_part_2.npz" 
+TARGET_MODEL_PATH = "./received_model_round_3.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 BATCH_SIZE = 64  

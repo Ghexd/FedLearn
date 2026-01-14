@@ -1,10 +1,12 @@
 superlink-certificates
 state
 .env
-test/data/
-test/datasets/
+*data/
+*datasets/
 *fashionmnist_part_*
+*partition_*
 server/final_model.pt
 server/server_data.npz
 *Test_info.txt
 *Train_info.txt
+*received_model_round*

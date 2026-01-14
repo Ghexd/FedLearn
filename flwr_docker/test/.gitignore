@@ -7,9 +7,12 @@ __pycache__/
 .flwr
 
 # Dataset folder
-data/
-datasets/
+*data/
+*datasets/
 server_data.npz
+/apnea_dataset/bcg_dataset/
+/apnea_dataset/windows/
+/apnea_dataset/partitions_data/
 
 # C extensions
 *.so

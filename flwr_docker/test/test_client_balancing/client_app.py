@@ -1,9 +1,9 @@
 import torch
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
-from test_client_balancing.task import Net, load_data_from_disk
-from test_client_balancing.task import test as test_fn
-from test_client_balancing.task import train as train_fn
+from test_client_balancing.task_apnea import Net, load_data_from_disk
+from test_client_balancing.task_apnea import test as test_fn
+from test_client_balancing.task_apnea import train as train_fn
 import subprocess
 import os
 
@@ -116,6 +116,19 @@ def train(msg: Message, context: Context):
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
+
+    if task == "fine_tune":
+        try:
+            round_id = msg.metadata.group_id if msg.metadata.group_id else "unknown"
+            
+            filename = f"received_model_round_{round_id}.pt"
+            save_path = os.path.join(absolute_path, filename)
+            
+            print(f"Saving received model for privacy analysis: {save_path}")
+            torch.save(model.state_dict(), save_path)
+            
+        except Exception as e:
+            print(f"Error saving privacy analysis model: {e}")
 
     # Train
     train_loss = train_fn(model, trainloader, local_epochs, learning_rate, device)

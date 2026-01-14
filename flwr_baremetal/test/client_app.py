@@ -3,9 +3,9 @@
 import torch
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
-from test.task import Net, load_data_from_disk
-from test.task import test as test_fn
-from test.task import train as train_fn
+from test.task_mnist import Net, load_data_from_disk
+from test.task_mnist import test as test_fn
+from test.task_mnist import train as train_fn
 import subprocess
 import os
 

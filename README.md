@@ -28,6 +28,8 @@ Within the `server` directory of the containerized demo, two scripts are provide
 - **Loss-Based Analysis**: A computationally efficient approach that analyzes the loss function to identify overfitting, which serves as an indicator that specific data points were used during training [1].
 - **Shadow Model Approach**: A more sophisticated technique that utilizes a "shadow model" to identify complex patterns within the target model. This allows for a more precise determination of whether specific samples were part of the training set [2].
 
+Finally, the `dockerized` environment includes scripts to generate a hybrid **sleep apnea dataset**. This dataset combines data from 10 real patients with a configurable number of virtual patients. While the simulated patients present a perfect ballistocardiogram with clearly identifiable apnea events, the inclusion of real patient data introduces realistic irregularity and noise, compensating for the small real-world sample size.
+
 ## How to Run the Demo
 
 **NOTE**: To run the measurement scripts correctly, make sure you run the Flower commands as **administrator** as some tools require elevated privileges.
@@ -87,6 +89,23 @@ clientapp = "test_client_balancing.client_app:app"
 1. Generate the MIA dataset using the provided script and copy it to the server folder.
 
 2. Go to the server folder and choose which of the two variants to run (remember to execute the demo to create and save a model to attack)
+
+### Changing datasets
+
+Before running the application, you must generate your chosen dataset:
+
+- F-MNIST:
+    - Run `generate_dataset.py` in the `mnist_dataset` directory and specify the number of partitions and their split ratios.
+    - Place the generated partitions into the client directories.
+    - For Docker usage, update the dataset partition filename in `docker compose` file.
+- Apnea:
+    - Run the `apnea_dataset.py` script located in the `apnea_dataset` directory.
+    - Run `windows_overlap.py` to generate windows defining apnea events.
+    - Run `dataset_split.py` to create the partitions.
+    - Place the partitions into the client directories.
+    - For Docker usage, update the dataset partition filename in `docker compose` file.
+
+To switch datasets, update the imports in both `server_app.py` and `client_app.py` to point to the correct task file (use `task_apnea.py` or `task_mnist.py`).
 
 #### References
 

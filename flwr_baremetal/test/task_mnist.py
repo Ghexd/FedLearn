@@ -9,7 +9,7 @@ from torchvision.transforms import Compose, Normalize
 import time
 import os
 
-absolute_path = "/home"
+absolute_path = "./"
 
 class CustomDataset(Dataset):
 
@@ -78,7 +78,7 @@ def load_data_from_disk(path: str, batch_size: int):
 
 
 def train(net, trainloader, epochs, learning_rate, device):
-
+    
     net.to(device)
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9)
@@ -90,43 +90,57 @@ def train(net, trainloader, epochs, learning_rate, device):
         start_time = time.time()
 
         running_loss = 0.0
+        correct = 0
+        total = 0 
+        
         for batch in trainloader:
             images = batch["image"].to(device)
             labels = batch["label"].to(device)
             optimizer.zero_grad()
-            loss = criterion(net(images), labels)
+            outputs = net(images)
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+            
+            # Calculate accuracy
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
         stop_time = time.time()
-        elapsed_time += stop_time - start_time
+        train_time = stop_time - start_time
+        elapsed_time += train_time
+        avg_epoch_loss = running_loss / len(trainloader)
+        epoch_acc = correct / total
 
         # Save train time per epoch
         try:
-            train_file_path = os.path.join(absolute_path, "Train_time.txt")
+            train_file_path = os.path.join(absolute_path, "Train_info.txt")
 
             with open(train_file_path, "a") as file:
-                file.write(f"Epoch {epoch+1}: {elapsed_time:.4f} seconds\n")
+                file.write(f"Epoch {epoch+1}: Time {train_time:.4f}s, Loss {avg_epoch_loss:.4f}, Accuracy {epoch_acc:.4f}\n")
         except IOError as e:
             print(f"Error writing file: {e}")
 
-        print(f"Epoch {epoch+1}/{epochs}, Avg loss: {running_loss/len(trainloader):.4f}")
+        print(f"Epoch {epoch+1}/{epochs}, Avg loss: {avg_epoch_loss:.4f}, Acc: {epoch_acc:.4f}")
     
     mean_elapsed_time = elapsed_time / epochs
     print(f"Train Mean time: {mean_elapsed_time}")
 
+    # Average loss of the final epoch
+    avg_trainloss = running_loss / len(trainloader)
+    final_acc = correct / total
+
     # Save average train time
     try:
-        train_file_path = os.path.join(absolute_path, "Train_time.txt")
+        train_file_path = os.path.join(absolute_path, "Train_info.txt")
 
         with open(train_file_path, "a") as file:
-            file.write(f"Mean train time: {mean_elapsed_time:.4f} seconds\n\n")
+            file.write(f"Mean train time: {mean_elapsed_time:.4f} seconds, Mean Loss: {avg_trainloss:.4f}, Mean Accuracy: {final_acc:.4f}\n\n")
     except IOError as e:
         print(f"Error writing file: {e}")
 
-    # Calculate and return the average loss of the final epoch
-    avg_trainloss = running_loss / len(trainloader)
     return avg_trainloss
 
 
@@ -135,7 +149,7 @@ def test(net, testloader, device):
     net.to(device)
     net.eval()
     criterion = torch.nn.CrossEntropyLoss()
-    correct, loss = 0, 0.0
+    correct, total, loss = 0, 0, 0.0
     
     elapsed_time = 0
     ind = 0
@@ -146,40 +160,46 @@ def test(net, testloader, device):
 
             images = batch["image"].to(device)
             labels = batch["label"].to(device)
+
             outputs = net(images)
-            loss += criterion(outputs, labels).item()
-            correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+            batch_loss = criterion(outputs, labels).item()
+            loss += batch_loss
+            
+            # Multi-class prediction
+            _, predicted = torch.max(outputs.data, 1)
+            
+            batch_correct = (predicted == labels).sum().item()
+            batch_total = labels.size(0)
+            
+            correct += batch_correct
+            total += batch_total
+            batch_acc = batch_correct / batch_total
 
             stop_time = time.time()
-            elapsed_time += stop_time - start_time
+            batch_time = stop_time - start_time
+            elapsed_time += batch_time
 
             ind = ind + 1
-            
-            # Save test time per batch
             try:
-                test_file_path = os.path.join(absolute_path, "Test_time.txt")
-
+                test_file_path = os.path.join(absolute_path, "Test_info.txt")
                 with open(test_file_path, "a") as file:
-                    file.write(f"Batch n.{ind}:{elapsed_time:.4f} seconds\n")
+                    file.write(f"Batch n.{ind}: {batch_time:.4f} seconds, Loss: {batch_loss:.4f}, Accuracy: {batch_acc:.4f}\n")
             except IOError as e:
                 print(f"Error writing file: {e}")
 
     mean_elapsed_time = elapsed_time / len(testloader)
     print(f"Test Mean time: {mean_elapsed_time}")
 
-    # Save average test time
-    try:
-        test_file_path = os.path.join(absolute_path, "Test_time.txt")
+    accuracy = correct / total
+    loss = loss / len(testloader)
 
+    try:
+        test_file_path = os.path.join(absolute_path, "Test_info.txt")
         with open(test_file_path, "a") as file:
-            file.write(f"Mean test time:{mean_elapsed_time:.4f} seconds\n\n")
+            file.write(f"Mean test time: {mean_elapsed_time:.4f} seconds, Mean Loss: {loss:.4f}, Mean Accuracy: {accuracy:.4f}\n\n")
     except IOError as e:
         print(f"Error writing file: {e}")
             
-    accuracy = correct / len(testloader.dataset)
-    # The average loss over the entire test set
-    loss = loss / len(testloader)
-
     print(f"Test loss: {loss:.4f}, Test Acc: {accuracy:.4f}")
 
     return loss, accuracy

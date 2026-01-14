@@ -40,16 +40,16 @@ publisher = "pi"
 [tool.flwr.app.components]
 # serverapp = "test_onnx.server_side.server_app:app"
 # clientapp = "test_onnx.server_side.client_app:app"
-# serverapp = "test.server_app:app"
-# clientapp = "test.client_app:app"
-serverapp = "test_client_balancing.server_app:app"
-clientapp = "test_client_balancing.client_app:app"
+serverapp = "test.server_app:app"
+clientapp = "test.client_app:app"
+# serverapp = "test_client_balancing.server_app:app"
+# clientapp = "test_client_balancing.client_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
-num-server-rounds = 2
+num-server-rounds = 10
 fraction-evaluate = 1.0
-local-epochs = 2
+local-epochs = 10
 learning-rate = 0.01
 batch-size = 64
 
