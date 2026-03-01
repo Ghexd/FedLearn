@@ -11,7 +11,7 @@ There are two main folders:
 - **flwr_baremetal** - intended for environments where Flower is installed directly on the target machines.
 - **flwr_docker** - intended for environments using Docker containers.
 
-Each section includes, within the `test` folder, a file for dataset generation (`generate_dataset.py`) that allows the user to specify the number of partitions and their proportions, either evenly divided or unbalanced.
+Use the provided folders (`apnea_dataset` e `mnist_dataset`) to generate datasets with custom partition sizes and distributions (even/unbalanced). Once generated, copy the results to the respective client folder for your experiment
 
 Inside the Docker folder, there is also a variant of the demo (in `test_onnx`) that attempts to extend the Flower framework to support scenarios where clients cannot run Flower directly. The idea is that the Flower server communicates with *fake clients* running on the server, while these fake clients communicate with the real devices (on other machines) using the gRPC protocol.
 
@@ -45,7 +45,7 @@ For detailed instructions, refer to the `instructions.txt` file in the **baremet
 3. Copy the performance script to each client. Open a terminal in the same directory and run the Flower **SuperNode** command *(repeat for each client you want to include)*.
 
 4. Navigate to the folder containing the `pyproject.toml` file and execute Flower **run** command.
-   
+
 ### Docker Version
 
 1. Generate dataset partitions and copy them to the corresponding clients folder.
@@ -95,15 +95,15 @@ clientapp = "test_client_balancing.client_app:app"
 Before running the application, you must generate your chosen dataset:
 
 - F-MNIST:
-    - Run `generate_dataset.py` in the `mnist_dataset` directory and specify the number of partitions and their split ratios.
-    - Place the generated partitions into the client directories.
-    - For Docker usage, update the dataset partition filename in `docker compose` file.
+  - Run `generate_dataset.py` in the `mnist_dataset` directory and specify the number of partitions and their split ratios.
+  - Place the generated partitions into the client directories.
+  - For Docker usage, update the dataset partition filename in `docker compose` file.
 - Apnea:
-    - Run the `apnea_dataset.py` script located in the `apnea_dataset` directory.
-    - Run `windows_overlap.py` to generate windows defining apnea events.
-    - Run `dataset_split.py` to create the partitions.
-    - Place the partitions into the client directories.
-    - For Docker usage, update the dataset partition filename in `docker compose` file.
+  - Run the `apnea_dataset.py` script located in the `apnea_dataset` directory.
+  - Run `windows_overlap.py` to generate windows defining apnea events.
+  - Run `dataset_split.py` to create the partitions.
+  - Place the partitions into the client directories.
+  - For Docker usage, update the dataset partition filename in `docker compose` file.
 
 To switch datasets, update the imports in both `server_app.py` and `client_app.py` to point to the correct task file (use `task_apnea.py` or `task_mnist.py`).
 

@@ -2,21 +2,21 @@ import pandas as pd
 import numpy as np
 import os
 import glob
+import shutil
+import argparse
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-import shutil
 
+# Configuration
 SIGNAL_FOLDER = "bcg_dataset"
 WINDOW_FOLDER = "windows"
 OUTPUT_FOLDER = "partitions_data" 
-N_PARTITIONS = 4                
 LOCAL_TEST_SPLIT = 0.2
 
 OVERLAP_THRESHOLD = 500
 MIN_LEN_PADDING = 1500
 
 def get_file_pairs(signal_dir, window_dir):
-    
     signal_files = sorted(glob.glob(os.path.join(signal_dir, "patient_*.csv")))
     valid_signals = []
     valid_windows = []
@@ -36,10 +36,6 @@ def get_file_pairs(signal_dir, window_dir):
     return valid_signals, valid_windows
 
 def process_data_into_memory(signal_files, window_files):
-    """
-    Loads all data, normalizes per patient, and extracts segments.
-    Returns a list of segments (numpy arrays) and a list of labels.
-    """
     all_segments = []
     all_labels = []
     max_len_found = 0
@@ -47,13 +43,14 @@ def process_data_into_memory(signal_files, window_files):
     print("Starting data processing...")
 
     for idx, (f_sig, f_win) in enumerate(zip(signal_files, window_files)):
-        # Load Signal and Normalize
         try:
+            # Load Signal
             df_sig = pd.read_csv(f_sig, sep=',')
-            bcg_raw = df_sig['BCG'].values.reshape(-1, 1)
+            bcg_raw = df_sig['bcg_synth'].values.reshape(-1, 1)
             
+            # Normalize
             scaler = StandardScaler()
-            signal_norm = scaler.fit_transform(bcg_raw).flatten() # Flatten to obtain a 1D array
+            signal_norm = scaler.fit_transform(bcg_raw).flatten()
             
             # Load Windows
             df_win = pd.read_csv(f_win, sep=',')
@@ -62,7 +59,6 @@ def process_data_into_memory(signal_files, window_files):
                 start = int(row['start_index'])
                 end = int(row['end_index'])
                 
-                # Index validity checks
                 if start >= 0 and end <= len(signal_norm) and start < end:
                     segment = signal_norm[start:end]
                     length = len(segment)
@@ -70,50 +66,71 @@ def process_data_into_memory(signal_files, window_files):
                     if length > max_len_found:
                         max_len_found = length
 
-                    # Label logic
                     label = 1.0 if row['overlap_samples'] > OVERLAP_THRESHOLD else 0.0
-                    
                     all_segments.append(segment)
                     all_labels.append(label)
 
         except Exception as e:
             print(f"Error processing {f_sig}: {e}")
 
-    print(f"Total extracted samples: {len(all_segments)}")
-    print(f"Maximum length found: {max_len_found}")
-    
     return all_segments, np.array(all_labels), max_len_found
 
 def pad_and_stack(segments, target_len):
-    """
-    Applies zero-padding to all segments to reach target_len
-    and stacks them into a single numpy array (N, target_len).
-    """
     n_samples = len(segments)
-    # Create a zero matrix (N, Length)
     X_padded = np.zeros((n_samples, target_len), dtype=np.float32)
     
     for i, seg in enumerate(segments):
         length = len(seg)
         if length > target_len:
-            # If for it is longer truncate
             X_padded[i, :] = seg[:target_len]
         else:
-            # Copy the segment at the beginning (padding at the end)
             X_padded[i, :length] = seg
             
     return X_padded
 
-def main():
+def get_partition_indices(num_samples, num_partitions=None, ratios=None):
+    indices = np.random.permutation(num_samples)
     
+    if ratios:
+        # Normalize ratios
+        ratios = np.array(ratios) / np.sum(ratios)
+        partition_indices = []
+        current_pos = 0
+        for i, r in enumerate(ratios):
+            start = current_pos
+            if i == len(ratios) - 1:
+                end = num_samples
+            else:
+                end = start + int(r * num_samples)
+            partition_indices.append(indices[start:end])
+            current_pos = end
+        return partition_indices
+    else:
+        # Equal splits
+        return np.array_split(indices, num_partitions)
+
+def main():
+    # CLI Arguments
+    parser = argparse.ArgumentParser(description="Split Dataset into custom partitions")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--num-partitions", type=int, help="Number of equal partitions")
+    group.add_argument("--ratios", type=float, nargs="+", help="List of proportions (e.g. 0.5 0.5)")
+    args = parser.parse_args()
+
+    # Default logic if no args provided (default to 4 equal parts)
+    if args.num_partitions is None and args.ratios is None:
+        args.num_partitions = 4
+        print("No split args provided. Defaulting to 4 equal partitions.")
+
+    # Setup output directory
     if os.path.exists(OUTPUT_FOLDER):
         shutil.rmtree(OUTPUT_FOLDER)
     os.makedirs(OUTPUT_FOLDER)
 
-    # Retrieve Files
+    # Load Data
     files_signal, files_window = get_file_pairs(SIGNAL_FOLDER, WINDOW_FOLDER)
     if not files_signal:
-        print("No files found. Check the paths.")
+        print("No files found.")
         return
 
     segments, labels, max_len_found = process_data_into_memory(files_signal, files_window)
@@ -123,43 +140,28 @@ def main():
         return
 
     final_len = max(max_len_found, MIN_LEN_PADDING)
-    print(f"Padding all segments to length: {final_len}")
+    print(f"Padding to length: {final_len}")
 
-    # Padding and conversion to a single NumPy array
     X_all = pad_and_stack(segments, final_len)
     y_all = labels
 
-    # Shuffle
-    indices = np.random.permutation(len(X_all))
-    X_all = X_all[indices]
-    y_all = y_all[indices]
+    print(f"Total samples: {len(X_all)}")
 
-    # Split the data into N equal parts
-    chunk_size = len(X_all) // N_PARTITIONS
-    remainder = len(X_all) % N_PARTITIONS
-    
-    start_idx = 0
-    
-    print(f"\nDistributing {len(X_all)} samples into {N_PARTITIONS} partitions...")
+    # Get Partition Indices
+    idx_list = get_partition_indices(len(X_all), args.num_partitions, args.ratios)
 
-    for i in range(N_PARTITIONS):
-        # adds 1 sample to the first nodes if not perfectly divisible
-        count = chunk_size + (1 if i < remainder else 0)
-        end_idx = start_idx + count
+    # Save partitions
+    for i, indices in enumerate(idx_list):
+        X_part = X_all[indices]
+        y_part = y_all[indices]
         
-        X_part = X_all[start_idx:end_idx]
-        y_part = y_all[start_idx:end_idx]
-        
-        start_idx = end_idx
-
-        # Local Train/Test Split for this node
         if len(X_part) > 0:
+            # Local Train/Test split
             X_train, X_test, y_train, y_test = train_test_split(
                 X_part, y_part, test_size=LOCAL_TEST_SPLIT, random_state=42
             )
             
-            # Save to disk (.npz)
-            filename = os.path.join(OUTPUT_FOLDER, f"partition_{i}.npz")
+            filename = os.path.join(OUTPUT_FOLDER, f"partition_{i+1}.npz")
             np.savez(
                 filename, 
                 train_images=X_train, 
@@ -167,11 +169,9 @@ def main():
                 test_images=X_test, 
                 test_labels=y_test
             )
-            print(f" -> Saved {filename}: Train={len(X_train)}, Test={len(X_test)}")
+            print(f"Saved partition {i+1}: Total={len(X_part)} (Train={len(X_train)}, Test={len(X_test)})")
         else:
-            print(f" -> Warning: Partition {i} is empty!")
-
-    print("\nGeneration completed.")
+            print(f"Warning: Partition {i+1} is empty!")
 
 if __name__ == "__main__":
     main()

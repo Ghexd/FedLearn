@@ -23,12 +23,11 @@ def train(msg: Message, context: Context):
 
     # Check for a "start_train" instruction (before the first round)
     if config.get("task") == "start_train":
-        # start monitoring script
         monitor = subprocess.run(['./start_monitor.sh'])
-        print(f"Monitoring script script started (exit code: {monitor.returncode})")
+        print(f"perf and pidstat script started (exit code: {monitor.returncode})")
         try:
-            train_file_path = os.path.join(absolute_path, "Train_time.txt")
-            test_file_path = os.path.join(absolute_path, "Test_time.txt")
+            train_file_path = os.path.join(absolute_path, "Train_info.txt")
+            test_file_path = os.path.join(absolute_path, "Test_info.txt")
 
             with open(train_file_path, "w") as file:
                 file.write("")
@@ -74,6 +73,7 @@ def train(msg: Message, context: Context):
 
 @app.evaluate()
 def evaluate(msg: Message, context: Context):
+    """Evaluate the model on local data."""
 
     print("Start Evaluating")
 
@@ -100,7 +100,6 @@ def evaluate(msg: Message, context: Context):
 
     # Check for a "stop_eval" instruction
     if config.get("task") == "stop_eval":
-        # stop monitoring script
         monitor = subprocess.run(['./stop_monitor.sh'])
         print(f"perf and pidstat script stopped (exit code: {monitor.returncode})")
 

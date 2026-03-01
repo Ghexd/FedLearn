@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     # default: 1/3, 1/3, 1/6, 1/6
     if args.num_partitions is None and args.ratios is None:
-        target_ratios = [1/3, 1/3, 1/6, 1/6]
+        target_ratios = [1/3, 1/3, 1/3]
         print("No arguments provided. Using default ratios: 1/3, 1/3, 1/6, 1/6")
         save_dataset_to_disk(ratios=target_ratios)
     else:

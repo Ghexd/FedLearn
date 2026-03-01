@@ -33,16 +33,16 @@ publisher = "pi"
 # Point to your ServerApp and ClientApp objects
 # Format: "<module>:<object>"
 [tool.flwr.app.components]
-serverapp = "test.server_app:app"
-clientapp = "test.client_app:app"
+serverapp = "test_client_balancing.server_app:app"
+clientapp = "test_client_balancing.client_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
-num-server-rounds = 5
+num-server-rounds = 10
 fraction-evaluate = 1
-local-epochs = 5
+local-epochs = 20
 learning-rate = 0.01
-batch-size = 64
+batch-size = 32
 
 # Default federation to use when running the app
 [tool.flwr.federations]

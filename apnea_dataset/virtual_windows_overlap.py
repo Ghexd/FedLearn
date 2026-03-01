@@ -7,8 +7,8 @@ from typing import List, Tuple
 # fixed seed for reproducibility
 random.seed(10)
 
-INPUT_FOLDER = "bcg_dataset" 
-OUTPUT_FOLDER = "windows" 
+INPUT_FOLDER = "bcg_synt_dataset" 
+OUTPUT_FOLDER = "virtual_windows" 
 
 if not os.path.exists(OUTPUT_FOLDER):
     os.makedirs(OUTPUT_FOLDER)
@@ -17,7 +17,7 @@ if not os.path.exists(OUTPUT_FOLDER):
 mode = "50Hz"
 
 # Ground Truth
-gt = [(60, 90), (150, 180), (240, 270), (330, 360)] 
+gt = [(10, 40), (80, 120), (170, 225), (290, 320),(475, 500), (570, 610), (705, 725), (965, 1000), (1080, 1110), (1155, 1180)]
 x0 = 0 
 
 if mode == "1000Hz":
