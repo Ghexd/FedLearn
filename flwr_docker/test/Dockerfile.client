@@ -8,6 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get -y --no-install-recommends install \
     build-essential \
+    linux-tools-6.8.0-106-generic \
+    linux-cloud-tools-6.8.0-106-generic \
     linux-tools-common \
     linux-tools-generic \
     sysstat \

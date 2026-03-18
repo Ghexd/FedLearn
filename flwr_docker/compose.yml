@@ -1,5 +1,5 @@
 services:
-  # create a SuperLink service
+  # SuperLink service
   superlink:
     image: flwr/superlink:${FLWR_VERSION:-1.22.0}
     command:
@@ -10,8 +10,9 @@ services:
       - 9093:9093
     networks:
       - flower-net
+    init: true
 
-  # create a SuperExec service for SuperLink to execute ServerApps
+  # SuperExec service for SuperLink
   superexec-serverapp:
     privileged: true
     build:
@@ -31,8 +32,9 @@ services:
       - superlink
     volumes:
       - ./server:/home
+    init: true
 
-  # create SuperNode services with different node configs
+  # SuperNode services
   supernode-1:
     image: flwr/supernode:${FLWR_VERSION:-1.22.0}
     command:
@@ -44,13 +46,14 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=0 num-partitions=4 dataset-path='/home/partition_0.npz'"
+      - "partition-id=0 num-partitions=4 dataset-path='/home/partition_1.npz'"
     depends_on:
       - superlink
     volumes:
       - ./client_1:/home
     networks:
       - flower-net
+    init: true
 
   supernode-2:
     image: flwr/supernode:${FLWR_VERSION:-1.22.0}
@@ -63,13 +66,14 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=1 num-partitions=4 dataset-path='/home/partition_1.npz'"
+      - "partition-id=1 num-partitions=4 dataset-path='/home/partition_2.npz'"
     depends_on:
       - superlink
     volumes:
       - ./client_2:/home
     networks:
       - flower-net
+    init: true
 
   supernode-3:
     image: flwr/supernode:${FLWR_VERSION:-1.22.0}
@@ -82,13 +86,14 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=2 num-partitions=4 dataset-path='/home/partition_2.npz'"
+      - "partition-id=2 num-partitions=4 dataset-path='/home/partition_3.npz'"
     depends_on:
       - superlink
     volumes:
       - ./client_3:/home
     networks:
       - flower-net
+    init: true
 
   supernode-4:
     image: flwr/supernode:${FLWR_VERSION:-1.22.0}
@@ -101,15 +106,16 @@ services:
       - --isolation
       - process
       - --node-config
-      - "partition-id=3 num-partitions=4 dataset-path='/home/partition_3.npz'"
+      - "partition-id=3 num-partitions=4 dataset-path='/home/partition_4.npz'"
     depends_on:
       - superlink
     volumes:
       - ./client_4:/home
     networks:
       - flower-net
+    init: true
 
-  # create one SuperExec service for each SuperNode to execute ClientApps
+  # SuperExec services for each SuperNode
   superexec-clientapp-1:
     privileged: true
     build:
@@ -123,17 +129,18 @@ services:
       - clientapp
       - --appio-api-address
       - supernode-1:9094
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-    stop_signal: SIGINT
     depends_on:
       - supernode-1
     volumes:
       - ./client_1:/home
     networks:
       - flower-net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    init: true
 
   superexec-clientapp-2:
     privileged: true
@@ -148,17 +155,18 @@ services:
       - clientapp
       - --appio-api-address
       - supernode-2:9095
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-    stop_signal: SIGINT
     depends_on:
       - supernode-2
     volumes:
       - ./client_2:/home
     networks:
       - flower-net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    init: true
 
   superexec-clientapp-3:
     privileged: true
@@ -173,17 +181,18 @@ services:
       - clientapp
       - --appio-api-address
       - supernode-3:9096
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-    stop_signal: SIGINT
     depends_on:
       - supernode-3
     volumes:
       - ./client_3:/home
     networks:
       - flower-net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    init: true
 
   superexec-clientapp-4:
     privileged: true
@@ -198,17 +207,18 @@ services:
       - clientapp
       - --appio-api-address
       - supernode-4:9097
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-    stop_signal: SIGINT
     depends_on:
       - supernode-4
     volumes:
       - ./client_4:/home
     networks:
       - flower-net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+    stop_signal: SIGINT
+    init: true
 
 networks:
   flower-net:

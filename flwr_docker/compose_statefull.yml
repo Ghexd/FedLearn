@@ -29,6 +29,7 @@ services:
         target: /home
         bind:
           create_host_path: true
+    init: true
 
   superexec-clientapp-2:
     build:
@@ -59,6 +60,7 @@ services:
         target: /home
         bind:
           create_host_path: true
+    init: true
 
   superexec-serverapp:
     build:
@@ -85,6 +87,7 @@ services:
         target: /home
         bind:
           create_host_path: true
+    init: true
 
   superlink:
     command:
@@ -106,6 +109,7 @@ services:
         target: /app/state
         bind:
           create_host_path: true
+    init: true
 
   supernode-1:
     command:
@@ -131,6 +135,7 @@ services:
         target: /home
         bind:
           create_host_path: true
+    init: true
 
   supernode-2:
     command:
@@ -156,6 +161,7 @@ services:
         target: /home
         bind:
           create_host_path: true
+    init: true
 
 networks:
   default:

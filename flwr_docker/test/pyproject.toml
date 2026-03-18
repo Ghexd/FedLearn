@@ -51,7 +51,7 @@ num-server-rounds = 10
 fraction-evaluate = 1.0
 local-epochs = 20
 learning-rate = 0.01
-batch-size = 64
+batch-size = 32
 
 # Default federation to use when running the app
 [tool.flwr.federations]

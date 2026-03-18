@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 # Configuration
 SIGNAL_FOLDER = "bcg_dataset"
-WINDOW_FOLDER = "windows"
+WINDOW_FOLDER = "virtual_windows"
 OUTPUT_FOLDER = "partitions_data" 
 LOCAL_TEST_SPLIT = 0.2
 

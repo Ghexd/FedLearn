@@ -33,8 +33,8 @@ publisher = "pi"
 # Point to your ServerApp and ClientApp objects
 # Format: "<module>:<object>"
 [tool.flwr.app.components]
-serverapp = "test_client_balancing.server_app:app"
-clientapp = "test_client_balancing.client_app:app"
+serverapp = "test.server_app:app"
+clientapp = "test.client_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
